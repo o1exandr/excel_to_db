@@ -5,6 +5,9 @@ using System.Text;
 using System.Threading.Tasks;
 using ClosedXML.Excel;
 using System.Data;
+using System.Configuration;
+using System.Data.SqlClient;
+
 
 namespace excel_to_db
 {
@@ -12,68 +15,44 @@ namespace excel_to_db
     {
         static void Main(string[] args)
         {
-          
+            string conStr = ConfigurationManager.AppSettings["ConnectionString"];
+
+            ReadExcel(conStr);
         }
 
-        static void ReadExcel()
+        static void ReadExcel(string conToDb)
         {
+            using (SqlConnection con = new SqlConnection(conToDb))
+            {
+                con.Open();
+                Console.WriteLine("Conections succed Data Source=somebase.mssql.somee.com;Initial Catalog=somebase;User ID=finiuk_SQLLogin_1;");
+                SqlCommand sqlCommand = new SqlCommand();
+                sqlCommand.Connection = con;
 
-            ExcelHelper excelHelper = new ExcelHelper();
-            var items = excelHelper.Read("book.xlsx");
-            foreach (var item in items)
-            {
-                var cols = item.ItemArray;
-                foreach (var itemCol in cols)
-                    Console.Write($"{itemCol.ToString()}  - ");
-                Console.WriteLine();
-            }
-        }
-        static void WriteExcel()
-        {
-            using (DataTable dt = new DataTable())
-            {
-                dt.Columns.Add(new DataColumn("Id",
-                    Type.GetType("System.Int32")));
-                dt.Columns.Add(new DataColumn("Name",
-                    Type.GetType("System.String")));
-                dt.Columns.Add(new DataColumn("Hobi",
-                    Type.GetType("System.String")));
-                dt.Columns.Add(new DataColumn("Image",
-                    Type.GetType("System.String")));
-                string fileName = "outputBooks.xlsx";
-                using (XLWorkbook wb = new XLWorkbook())
+                ExcelHelper excelHelper = new ExcelHelper();
+                var items = excelHelper.Read("data.xlsx");
+                string[] users = { "", "", "" };
+                int counter = 0;
+                foreach (var item in items)
                 {
-                    for (int i = 0; i < 10; i++)
+                    var cols = item.ItemArray;
+                    foreach (var itemCol in cols)
                     {
-                        object[] listCols =
+                        users[counter++] = itemCol.ToString();
+                        //Console.Write($"{itemCol.ToString(),30}({++counter})");
+                        if (counter % 3 == 0)
                         {
-                            i+1,
-                            "Step",
-                            null,
-                            Guid.NewGuid().ToString()
-                        };
-                        dt.Rows.Add(listCols);
+                            string query = "INSERT INTO [dbo].[tblUsers] ([Firstname],[Lastname],[Email]) " +
+                            $"VALUES ('{users[0]}','{users[1]}','{users[2]}')";
+                            sqlCommand.CommandText = query;
+                            int countInsert = sqlCommand.ExecuteNonQuery();
+                            Console.WriteLine($"{users[0], 15} {users[1], 15} {users[2], 30} ADDED");
+                            counter = 0;
+                        }
                     }
-                    wb.Worksheets.Add(dt, "users-images");
-                    wb.SaveAs(fileName);
-
+                    
                 }
-
             }
-        }
-        static void Main(string[] args)
-        {
-            ReadExcel();
-            //List<Person> list = new List<Person>
-            //{
-            //    new Person
-            //    {
-            //        FullName = "Іван Васильович",
-            //        DateBirth=DateTime.Now
-            //    }
-            //};
-            //WordHelper wordHelper = new WordHelper();
-            //wordHelper.SavePersonToWord(list,"doc.docx");
         }
     }
 }
